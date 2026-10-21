@@ -1,0 +1,2 @@
+# Okuyucunun ihtiyaç duyduğu dış kütüphaneler. Sahte ESP32 ve testler bunlara ihtiyaç duymaz.
+pyserial==3.5
