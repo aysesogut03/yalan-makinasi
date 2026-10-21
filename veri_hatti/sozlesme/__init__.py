@@ -7,7 +7,7 @@
 #   kayitlar.py    Olcum, Atim, Olay gibi kayıt tipleri (CSV sütunları bunlar)
 #   kurallar.py    "kayıt alan her program al() ve kapat() metotlarına sahip olmalı" kuralı
 #   Kullanım: from sozlesme import Olcum, VeriAlici. Yalnızca ekip onayıyla değiştirilir
-#   (PROJE.md, 4. bölüm).
+#   (projenin ana README.md'si, 4. bölüm).
 
 from .kurallar import VeriAlici
 from .kayitlar import Atim, CihazBilgisi, HamSatir, Kayit, Olay, OlayTuru, Olcum

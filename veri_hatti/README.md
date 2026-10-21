@@ -1,6 +1,6 @@
 # Veri Hattı
 
-Projenin 2. katmanı ([PROJE.md](../PROJE.md)). Sensör verisinin ESP32'den diğer katmanların kullanabileceği hale gelmesini sağlar. 1. katmanın (ESP32) bilgisayara ne gönderdiği de burada tanımlıdır.
+Projenin 2. katmanı ([projenin ana README'si](../README.md)). Sensör verisinin ESP32'den diğer katmanların kullanabileceği hale gelmesini sağlar. 1. katmanın (ESP32) bilgisayara ne gönderdiği de burada tanımlıdır.
 
 - Sorumlu: C grubu
 - Durum: prototip çalışıyor (sahte ESP32 → okuyucu → kayıt dosyaları); gerçek ESP32 bekleniyor
