@@ -3,4 +3,5 @@ __pycache__/
 .venv/
 kayitlar/
 node_modules/
+esp32/*/build/
 

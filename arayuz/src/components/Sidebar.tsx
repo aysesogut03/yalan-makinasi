@@ -1,12 +1,21 @@
 import React from 'react';
 import { Activity, Users, FilePlus, PlayCircle, FileText, History, Settings } from 'lucide-react';
+import type { BaglantiDurumu } from '../services/websocket';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  durum: BaglantiDurumu;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+const ROZETLER: Record<BaglantiDurumu, { uzun: string; kisa: string; renk: string; nokta: string }> = {
+  bagli: { uzun: 'CANLI VERİ', kisa: 'CANLI', renk: 'bg-emerald-400 text-emerald-950', nokta: 'bg-emerald-950/70' },
+  baglaniyor: { uzun: 'BAĞLANIYOR', kisa: 'BAĞL', renk: 'bg-brand-yellow text-yellow-950', nokta: 'bg-yellow-950/70' },
+  kapali: { uzun: 'BEKLEMEDE', kisa: 'BEKLE', renk: 'bg-slate-600 text-slate-100', nokta: 'bg-slate-300' },
+};
+
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, durum }) => {
+  const rozet = ROZETLER[durum];
   const menuItems = [
     { id: 'genel-bakis', label: 'Genel Bakış', icon: Activity },
     { id: 'katilimcilar', label: 'Katılımcılar', icon: Users },
@@ -73,14 +82,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
       {/* Alt Rozet */}
       <div className="relative border-t border-white/10 pt-5 text-xs text-slate-400">
         <div className="mb-3 flex justify-center lg:justify-start">
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-brand-yellow px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider text-yellow-950">
-            <span className="h-1.5 w-1.5 rounded-full bg-yellow-950/70" />
-            <span className="hidden lg:inline">DEMO MODU</span>
-            <span className="lg:hidden">DEMO</span>
+          <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider ${rozet.renk}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${rozet.nokta}`} />
+            <span className="hidden lg:inline">{rozet.uzun}</span>
+            <span className="lg:hidden">{rozet.kisa}</span>
           </span>
         </div>
         <p className="hidden text-[11px] leading-relaxed text-slate-400 lg:block">
-          ESP32 veri hattını anlatan araştırma prototipi. Donanım verisi okunmaz.
+          Ölçüm verisi ESP32'den veri hattı üzerinden canlı gelir. Araştırma prototipi.
         </p>
       </div>
     </aside>

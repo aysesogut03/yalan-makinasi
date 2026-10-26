@@ -1,36 +1,39 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Play, Square, Activity, Droplets, Wind, HeartPulse } from 'lucide-react';
 import { LiveChart } from '../components/LiveChart';
 import { SensorCard } from '../components/SensorCard';
-import { OlcumData } from '../services/websocket';
+import { OlcumData, BaglantiDurumu, useOlcumStream } from '../services/websocket';
 
-const MAX_POINTS = 120;
+interface LiveMeasureProps {
+  onDurum?: (durum: BaglantiDurumu) => void;
+}
 
-export const LiveMeasure: React.FC = () => {
-  const [dataStream, setDataStream] = useState<OlcumData[]>([]);
+export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const tick = useRef(0);
+  const { data: dataStream, status } = useOlcumStream(running);
 
-  /* ===== VERİ KAYNAĞI: burayı kendi WebSocket/servis kodunla değiştir ===== */
+  useEffect(() => {
+    onDurum?.(status);
+  }, [status, onDurum]);
+
+  useEffect(() => () => onDurum?.('kapali'), [onDurum]);
+
   useEffect(() => {
     if (!running) return;
-    const id = setInterval(() => {
-      tick.current += 1;
-      const t = tick.current;
-      const next = {
-        heartRate: 70 + Math.sin(t / 6) * 3 + Math.random(),
-        gsr: 1.49 + Math.sin(t / 10) * 0.05 + Math.random() * 0.01,
-        respiration: 14 + Math.sin(t / 15) * 1.2,
-      } as unknown as OlcumData;
-      setDataStream((prev) => [...prev.slice(-(MAX_POINTS - 1)), next]);
-      setElapsed((s) => s + 1);
-    }, 1000);
+    const id = setInterval(() => setElapsed((s) => s + 1), 1000);
     return () => clearInterval(id);
   }, [running]);
-  /* ======================================================================== */
 
   const last = dataStream[dataStream.length - 1];
+
+  const kartDurumu = !running
+    ? 'Beklemede'
+    : status !== 'bagli'
+      ? 'Bağlanıyor'
+      : last
+        ? 'Canlı'
+        : 'Hesaplanıyor';
 
   const series = (pick: (d: OlcumData) => number) => dataStream.slice(-30).map(pick);
 
@@ -82,6 +85,14 @@ export const LiveMeasure: React.FC = () => {
         </div>
       </div>
 
+      {running && !last && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
+          {status === 'bagli'
+            ? 'Veri hattına bağlandı. Nabız ve solunumu hesaplamak için yaklaşık 15–20 saniye veri toplanıyor…'
+            : 'Veri hattına bağlanılıyor… Okuyucu çalışmıyorsa veri_hatti klasöründe: .venv/bin/python -m okuyucu'}
+        </div>
+      )}
+
       {/* Sensör kartları */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SensorCard
@@ -91,16 +102,16 @@ export const LiveMeasure: React.FC = () => {
           color="#FB7C45"
           history={series((d) => d.heartRate)}
           icon={<HeartPulse size={18} />}
-          status={running ? 'Canlı' : 'Beklemede'}
+          status={kartDurumu}
         />
         <SensorCard
           label="GSR"
-          value={last ? last.gsr.toFixed(3) : undefined}
+          value={last ? last.gsr.toFixed(0) : undefined}
           unit="mV"
           color="#4F8CFF"
           history={series((d) => d.gsr)}
           icon={<Droplets size={18} />}
-          status={running ? 'Canlı' : 'Beklemede'}
+          status={kartDurumu}
         />
         <SensorCard
           label="Solunum"
@@ -109,7 +120,7 @@ export const LiveMeasure: React.FC = () => {
           color="#2DD4A7"
           history={series((d) => d.respiration)}
           icon={<Wind size={18} />}
-          status={running ? 'Canlı' : 'Beklemede'}
+          status={kartDurumu}
         />
       </div>
 

@@ -13,7 +13,7 @@ export interface OlcumData {
 
 export type BaglantiDurumu = 'baglaniyor' | 'bagli' | 'kapali';
 
-const WS_URL = 'ws://localhost:8765';
+const WS_URL = 'ws://127.0.0.1:8765';
 const MAX_NOKTA = 120;
 const PENCERE_SN = 40;
 const BAYAT_MS = 3000;
@@ -67,7 +67,7 @@ export function useOlcumStream(active: boolean = true) {
       };
 
       ws.onclose = () => {
-        setStatus('kapali');
+        setStatus(kapali ? 'kapali' : 'baglaniyor');
         if (!kapali) yeniden = setTimeout(baglan, 2000);
       };
 

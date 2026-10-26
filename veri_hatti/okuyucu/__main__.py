@@ -6,10 +6,13 @@
 # AYRINTI: "python -m okuyucu" yazınca çalışan dosya budur. Dört alt katmanın
 #   parçalarını oluşturur, birbirine bağlar ve bandı (hat.py) başlatır. Parçaları
 #   birbirine bağlayan tek yer burası olduğu için, örneğin yeni bir alıcı eklemek ya da
-#   bağlantıyı değiştirmek yalnızca bu dosyada bir satırı değiştirir. Kullanım:
+#   bağlantıyı değiştirmek yalnızca bu dosyada bir satırı değiştirir. Kayıtlar dosyalara
+#   yazılırken aynı anda arayüze de canlı yayınlanır (WebSocket, ws://127.0.0.1:8765);
+#   yayın açılamazsa uyarı verilir ve kayıt yine sürer. Kullanım:
 #     .venv/bin/python -m okuyucu                                  sahte ESP32'ye bağlanır
 #     .venv/bin/python -m okuyucu --adres /dev/cu.usbserial-0001    gerçek ESP32 (macOS)
 #     .venv\Scripts\python -m okuyucu --adres COM3                  gerçek ESP32 (Windows)
+#     .venv/bin/python -m okuyucu --canli-yok                       arayüze yayın yapmadan
 
 import argparse
 import sys
@@ -41,7 +44,19 @@ def _argumanlari_oku(argv: list[str] | None) -> argparse.Namespace:
     komut_satiri.add_argument("--kayit-klasoru", default="kayitlar", help="kayıtların yazılacağı klasör (varsayılan: kayitlar)")
     komut_satiri.add_argument("--gsr-kalibrasyon", type=int, default=None, help="GSR sensörünün kalibrasyon değeri (oturum.json'a yazılır)")
     komut_satiri.add_argument("--sessiz", action="store_true", help="ekrana özet basma")
+    komut_satiri.add_argument("--canli-kapi", type=int, default=8765, help="arayüze canlı yayın kapısı (varsayılan: 8765)")
+    komut_satiri.add_argument("--canli-yok", action="store_true", help="arayüze canlı yayın yapma")
     return komut_satiri.parse_args(argv)
+
+
+def _canli_yayin(kapi: int):
+    try:
+        from .dagitim.websocket_alici import WebSocketAlici
+
+        return WebSocketAlici(port=kapi)
+    except (ImportError, RuntimeError) as hata:
+        print(f"Arayüze canlı yayın açılamadı, kayıt yine de sürüyor: {hata}", file=sys.stderr)
+        return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -61,6 +76,9 @@ def main(argv: list[str] | None = None) -> int:
     alicilar = [kaydedici]
     if not argumanlar.sessiz:
         alicilar.append(KonsolAlici())
+    canli = None if argumanlar.canli_yok else _canli_yayin(argumanlar.canli_kapi)
+    if canli is not None:
+        alicilar.append(canli)
 
     hat = VeriHatti(
         kaynak=kaynak,
@@ -71,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     print(f"Bağlandı: {argumanlar.adres}")
+    if canli is not None:
+        print(f"Arayüze canlı yayın: ws://127.0.0.1:{argumanlar.canli_kapi}")
     print(f"Kayıt klasörü: {kaydedici.klasor}  (durdurmak için Ctrl+C)")
     try:
         hat.calistir()

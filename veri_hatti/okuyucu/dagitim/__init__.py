@@ -7,6 +7,7 @@
 # AYRINTI:
 #   oturum_kaydedici.py  sonucu kayitlar/ klasöründeki dosyalara yazar
 #   konsol_alici.py      çalışırken ekrana saniyede bir özet basar
+#   websocket_alici.py   kayıtları arayüze canlı yayınlar (WebSocket, 8765 kapısı)
 #   Yeni bir teslim yeri (örneğin A grubu için canlı yayın) buraya yeni bir dosya olarak
 #   eklenir; diğer alt katmanlar değişmez.
 
