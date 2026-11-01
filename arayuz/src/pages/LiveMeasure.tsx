@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Play, Square, Activity, Droplets, Wind, HeartPulse } from 'lucide-react';
-import { LiveChart } from '../components/LiveChart';
 import { SensorCard } from '../components/SensorCard';
-import { OlcumData, BaglantiDurumu, useOlcumStream } from '../services/websocket';
+import { BaglantiDurumu, useOlcumStream } from '../services/websocket';
+import { sessionService } from '../services/api';
 
 interface LiveMeasureProps {
   onDurum?: (durum: BaglantiDurumu) => void;
@@ -11,7 +11,19 @@ interface LiveMeasureProps {
 export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const { data: dataStream, status } = useOlcumStream(running);
+  const [kayitMesaji, setKayitMesaji] = useState('');
+  const { data: rawStream, status, clear } = useOlcumStream(running);
+
+  // Gelen canlı veriyi güvenli formata dönüştürme
+  const dataStream = useMemo(() => {
+    if (!Array.isArray(rawStream)) return [];
+    return rawStream.map((d: any) => ({
+      timestamp: d?.timestamp || Date.now(),
+      heartRate: Number(d?.heartRate ?? d?.ppg ?? 0),
+      gsr: Number(d?.gsr ?? 0),
+      respiration: Number(d?.respiration ?? 0),
+    }));
+  }, [rawStream]);
 
   useEffect(() => {
     onDurum?.(status);
@@ -35,7 +47,7 @@ export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
         ? 'Canlı'
         : 'Hesaplanıyor';
 
-  const series = (pick: (d: OlcumData) => number) => dataStream.slice(-30).map(pick);
+  const series = (pick: (d: any) => number) => dataStream.slice(-30).map(pick);
 
   const stats = useMemo(() => {
     const calc = (vals: number[]) => {
@@ -52,6 +64,42 @@ export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
     };
   }, [dataStream]);
 
+  const sonucuKaydet = async () => {
+    const kayitId = sessionStorage.getItem('aktifOturumId');
+    if (!kayitId) {
+      setKayitMesaji('Kayıt için önce Yeni Oturum ekranından "Ölçüme geç" ile başlayın.');
+      return;
+    }
+    if (dataStream.length === 0) {
+      setKayitMesaji('Kaydedilecek ölçüm verisi oluşmadı.');
+      return;
+    }
+    const ortalama = (vals: number[]) => vals.reduce((a, b) => a + b, 0) / vals.length;
+    try {
+      await sessionService.finishSession(kayitId, {
+        ortalama_bpm: Math.round(ortalama(dataStream.map((d) => d.heartRate)) * 10) / 10,
+        ortalama_gsr: Math.round(ortalama(dataStream.map((d) => d.gsr)) * 10) / 10,
+        sure_sn: elapsed,
+      });
+      sessionStorage.removeItem('aktifOturumId');
+      setKayitMesaji('Oturum sonuçları kaydedildi. Oturum Geçmişi sayfasında görebilirsiniz.');
+    } catch (err) {
+      console.error('Oturum sonucu kaydedilemedi:', err);
+      setKayitMesaji('Oturum sonuçları kaydedilemedi. Backend sunucusunun açık olduğundan emin olun.');
+    }
+  };
+
+  const toggle = () => {
+    if (running) {
+      void sonucuKaydet();
+    } else {
+      clear();
+      setElapsed(0);
+      setKayitMesaji('');
+    }
+    setRunning((r) => !r);
+  };
+
   const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
   const ss = String(elapsed % 60).padStart(2, '0');
 
@@ -63,7 +111,7 @@ export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
           <span className="mb-1 block text-xs font-bold uppercase tracking-[0.18em] text-brand-orange">
             ARAŞTIRMA ARAYÜZÜ / 04
           </span>
-          <h1 className="text-3xl font-black tracking-tight text-brand-navy">Canlı ölçüm</h1>
+          <h1 className="text-3xl font-black tracking-tight text-brand-navy">Canlı Ölçüm</h1>
         </div>
 
         <div className="flex items-center gap-3">
@@ -74,13 +122,13 @@ export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
             </div>
           </div>
           <button
-            onClick={() => setRunning((r) => !r)}
-            className={`flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-bold text-white transition hover:-translate-y-0.5 ${
+            onClick={toggle}
+            className={`flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-bold text-white transition hover:-translate-y-0.5 cursor-pointer ${
               running ? 'bg-rose-500 hover:bg-rose-600' : 'bg-brand-orange shadow-glow hover:bg-orange-500'
             }`}
           >
             {running ? <Square size={14} /> : <Play size={14} />}
-            {running ? 'Durdur' : 'Ölçümü başlat'}
+            {running ? 'Durdur' : 'Ölçümü Başlat'}
           </button>
         </div>
       </div>
@@ -88,8 +136,14 @@ export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
       {running && !last && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
           {status === 'bagli'
-            ? 'Veri hattına bağlandı. Nabız ve solunumu hesaplamak için yaklaşık 15–20 saniye veri toplanıyor…'
-            : 'Veri hattına bağlanılıyor… Okuyucu çalışmıyorsa veri_hatti klasöründe: .venv/bin/python -m okuyucu'}
+            ? 'Veri hattına bağlandı. Biyosinyal verileri aktarılıyor…'
+            : 'Veri hattına bağlanılıyor…'}
+        </div>
+      )}
+
+      {kayitMesaji && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-800">
+          {kayitMesaji}
         </div>
       )}
 
@@ -106,7 +160,7 @@ export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
         />
         <SensorCard
           label="GSR"
-          value={last ? last.gsr.toFixed(0) : undefined}
+          value={last ? last.gsr.toFixed(1) : undefined}
           unit="mV"
           color="#4F8CFF"
           history={series((d) => d.gsr)}
@@ -124,14 +178,11 @@ export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
         />
       </div>
 
-      {/* Ana grafik */}
-      <LiveChart dataStream={dataStream} />
-
-      {/* Özet istatistik */}
+      {/* Özet İstatistik Tablosu */}
       <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-card">
         <div className="mb-4 flex items-center gap-2">
           <Activity size={16} className="text-brand-orange" />
-          <h3 className="text-base font-bold text-brand-navy">Oturum özeti (anlık)</h3>
+          <h3 className="text-base font-bold text-brand-navy">Oturum Özeti (Anlık)</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">

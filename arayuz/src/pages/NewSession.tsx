@@ -1,7 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { participantService, sessionService } from '../services/api';
 
 interface NewSessionProps {
   onGoToMeasure: () => void;
+}
+
+interface Katilimci {
+  id: number;
+  ad_soyad: string;
+  tc_no?: string;
 }
 
 const KNOWN_QUESTIONS = [
@@ -32,9 +39,32 @@ const QuestionRow: React.FC<{ index: number; text: string }> = ({ index, text })
 );
 
 export const NewSession: React.FC<NewSessionProps> = ({ onGoToMeasure }) => {
-  const [participant, setParticipant] = useState('K-104');
+  const [katilimcilar, setKatilimcilar] = useState<Katilimci[]>([]);
+  const [participant, setParticipant] = useState<string>('');
   const [curious, setCurious] = useState<string[]>(INITIAL_CURIOUS);
   const [newQuestion, setNewQuestion] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [fetchingKatilimcilar, setFetchingKatilimcilar] = useState(true);
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    const fetchKatilimcilar = async () => {
+      try {
+        const response = await participantService.getParticipants();
+        setKatilimcilar(response);
+        if (response.length > 0) {
+          setParticipant(String(response[0].id));
+        }
+      } catch (err) {
+        console.error('Katılımcılar yüklenirken hata oluştu:', err);
+        setError('Katılımcı listesi alınamadı. Backend sunucusunun açık olduğundan emin olun.');
+      } finally {
+        setFetchingKatilimcilar(false);
+      }
+    };
+
+    fetchKatilimcilar();
+  }, []);
 
   const addQuestion = () => {
     const t = newQuestion.trim();
@@ -43,11 +73,43 @@ export const NewSession: React.FC<NewSessionProps> = ({ onGoToMeasure }) => {
     setNewQuestion('');
   };
 
-  const canProceed = participant !== '';
+  const canProceed = participant !== '' && !loading;
+
+  const handleStartSession = async () => {
+    if (!canProceed) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+        const sonuc = await sessionService.createSession({
+        katilimci_id: Number(participant),
+        test_adi: 'Poligraf Biyosinyal Oturumu',
+        notlar: `Hazırlanan Soru Sayısı: ${KNOWN_QUESTIONS.length + curious.length}`,
+        ortalama_bpm: 0,
+        ortalama_gsr: 0,
+        yalan_skoru: 0,
+      });
+
+         sessionStorage.setItem('aktifOturumId', sonuc?.data?.kayit_id ?? '');
+      onGoToMeasure();
+    } catch (err: any) {
+      console.error('Oturum başlatılırken hata oluştu:', err);
+      const detail = err.response?.data?.detail;
+      if (typeof detail === 'string') {
+        setError(detail);
+      } else if (Array.isArray(detail)) {
+        setError('Gönderilen veri formatı backend ile uyuşmuyor.');
+      } else {
+        setError('Oturum kaydedilirken bir hata oluştu.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-6xl animate-fadeUp space-y-5">
-      {/* Üst başlık + rozet */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.18em] text-brand-orange">
@@ -61,7 +123,6 @@ export const NewSession: React.FC<NewSessionProps> = ({ onGoToMeasure }) => {
         </span>
       </div>
 
-      {/* Uyarı bandı */}
       <div className="flex items-start gap-3 rounded-xl border border-orange-200/70 bg-gradient-to-r from-orange-50 to-amber-50/40 p-3.5 text-xs leading-relaxed text-gray-700">
         <span className="mt-0.5 h-4 w-1 shrink-0 rounded-full bg-brand-orange" />
         <p>
@@ -69,39 +130,43 @@ export const NewSession: React.FC<NewSessionProps> = ({ onGoToMeasure }) => {
         </p>
       </div>
 
-      {/* Hata bandı (katılımcı seçilmediyse) */}
-      {!canProceed && (
+      {error && (
         <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-medium text-rose-700">
           <span className="mt-0.5 h-4 w-1 shrink-0 rounded-full bg-rose-400" />
-          <p>Katılımcı kodunu ve yaş aralığını girin.</p>
+          <p>{error}</p>
         </div>
       )}
 
       <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* Sol sütun */}
         <div className="space-y-5">
-          {/* Katılımcı ve oturum hazırlığı */}
           <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-card">
             <h3 className="mb-4 text-lg font-bold text-brand-navy">Katılımcı ve oturum hazırlığı</h3>
 
             <label className="block">
               <span className="mb-1.5 block text-[11px] font-semibold text-gray-500">Katılımcı seçimi</span>
-              <select
-                value={participant}
-                onChange={(e) => setParticipant(e.target.value)}
-                className="w-full cursor-pointer rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-brand-navy outline-none transition focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/10"
-              >
-                <option value="">Seçiniz</option>
-                <option value="K-104">K-104 · örnek demo</option>
-              </select>
+              {fetchingKatilimcilar ? (
+                <div className="text-xs text-gray-400 p-2">Katılımcılar yükleniyor...</div>
+              ) : (
+                <select
+                  value={participant}
+                  onChange={(e) => setParticipant(e.target.value)}
+                  className="w-full cursor-pointer rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-brand-navy outline-none transition focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/10"
+                >
+                  <option value="">Seçiniz</option>
+                  {katilimcilar.map((k) => (
+                    <option key={k.id} value={k.id}>
+                      {k.ad_soyad} {k.tc_no ? `(T.C.: ${k.tc_no})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </label>
 
             <p className="mt-2.5 text-[11px] text-gray-400">
-              K-104 örneği yalnızca demo içindir. Kayıtlı katılımcılar açık rıza onayıyla görünür.
+              Kayıtlı katılımcılar KVKK ve açık rıza onayı kapsamına göre listelenir.
             </p>
           </section>
 
-          {/* Bilinen cevaplı 4 soru */}
           <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-card">
             <h3 className="mb-4 text-lg font-bold text-brand-navy">Bilinen cevaplı 4 soru</h3>
             <ul className="space-y-2.5">
@@ -111,7 +176,6 @@ export const NewSession: React.FC<NewSessionProps> = ({ onGoToMeasure }) => {
             </ul>
           </section>
 
-          {/* Merak edilen sorular */}
           <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-card">
             <h3 className="mb-4 text-lg font-bold text-brand-navy">Merak edilen sorular</h3>
             <ul className="space-y-2.5">
@@ -127,12 +191,13 @@ export const NewSession: React.FC<NewSessionProps> = ({ onGoToMeasure }) => {
                   value={newQuestion}
                   onChange={(e) => setNewQuestion(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addQuestion()}
+                  placeholder="Eklemek istediğiniz soruyu yazın..."
                   className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-brand-navy outline-none transition focus:border-brand-orange focus:ring-4 focus:ring-brand-orange/10"
                 />
                 <button
                   type="button"
                   onClick={addQuestion}
-                  className="shrink-0 rounded-xl bg-gray-100 px-4 py-3 text-xs font-bold text-gray-700 transition hover:bg-gray-200"
+                  className="shrink-0 cursor-pointer rounded-xl bg-gray-100 px-4 py-3 text-xs font-bold text-gray-700 transition hover:bg-gray-200"
                 >
                   Soru ekle
                 </button>
@@ -141,21 +206,19 @@ export const NewSession: React.FC<NewSessionProps> = ({ onGoToMeasure }) => {
           </section>
         </div>
 
-        {/* Sağ sütun */}
         <aside className="space-y-5 lg:sticky lg:top-24">
           <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-card">
             <h3 className="mb-2 text-lg font-bold text-brand-navy">Deneysel gözlem</h3>
             <p className="mb-5 text-xs leading-relaxed text-gray-500">
               Önce ölçüm ekranında kalibrasyon yapın. Dört bilinen soru tamamlanınca merak edilen sorular açılır.
-              Gerçek biyometrik veri bu prototipte okunmaz.
             </p>
             <button
               type="button"
-              onClick={onGoToMeasure}
+              onClick={handleStartSession}
               disabled={!canProceed}
-              className="w-full rounded-xl bg-brand-orange px-5 py-3 text-xs font-bold text-white shadow-glow transition hover:-translate-y-0.5 hover:bg-orange-500 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:translate-y-0"
+              className="w-full cursor-pointer rounded-xl bg-brand-orange px-5 py-3 text-xs font-bold text-white shadow-glow transition hover:-translate-y-0.5 hover:bg-orange-500 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:translate-y-0"
             >
-              Ölçüme geç ↗
+              {loading ? 'Kaydediliyor...' : 'Ölçüme geç ↗'}
             </button>
           </section>
         </aside>
