@@ -1,0 +1,8 @@
+# Görüntü işlemenin ihtiyaç duyduğu dış kütüphaneler. Python 3.11 / Windows 11 üzerinde test edildi.
+# OpenCV 4.10 şart: pip'teki OpenCV 5.0 sürümü kamerayı indeksle açamıyor.
+mediapipe==0.10.11
+opencv-contrib-python==4.10.0.84
+numpy==2.4.6
+pillow==13.0.0
+fastapi==0.143.5
+uvicorn[standard]==0.54.0
