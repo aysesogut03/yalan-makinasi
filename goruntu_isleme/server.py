@@ -14,6 +14,7 @@ import argparse
 import asyncio
 import csv
 import json
+import math
 import os
 import threading
 import time
@@ -22,7 +23,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -32,13 +33,15 @@ from features import FEATURES
 from vision import FINGERTIPS, VisionAnalyzer
 
 app = FastAPI(title="Yalan Makinesi - Görüntü Modülü")
-app.add_middleware(CORSMiddleware, allow_origins=["*"],
+# Yalnızca yerel sayfalar (arayüz geliştirme sunucusu dahil) HTTP ile okuyabilir.
+app.add_middleware(CORSMiddleware, allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
                    allow_methods=["*"], allow_headers=["*"])
 
 analyzer = VisionAnalyzer()
 latest = {"status": "starting"}
 rec = {"on": False, "label": ""}       # kayıt modu durumu
 blind = {"on": False}                   # rehberli kayıtta skor gizlenir (kör test)
+recal = {"req": False}                  # /calibrate isteği; kamera döngüsü kendi iş parçacığında uygular
 sensors = {"t": 0.0, "bpm": None, "gsr": None, "resp_rate": None}
 SENSOR_TIMEOUT = 5.0     # sn; bu kadar süre veri gelmezse null yap
 
@@ -51,6 +54,10 @@ class SensorData(BaseModel):
 
 @app.post("/sensors")
 def post_sensors(d: SensorData):
+    # NaN/inf kabul edilmez: JSON'a "NaN" olarak yazılıp arayüzde JSON.parse'ı bozardı.
+    # (Kontrol burada: pydantic'in allow_inf_nan=False hatası, yanıt gövdesine NaN koymaya çalışıp 500 veriyordu.)
+    if any(v is not None and not math.isfinite(v) for v in (d.bpm, d.gsr, d.resp_rate)):
+        raise HTTPException(status_code=422, detail="bpm, gsr ve resp_rate sonlu sayı olmalı")
     sensors.update(t=time.time(), bpm=d.bpm, gsr=d.gsr, resp_rate=d.resp_rate)
     return {"ok": True}
 
@@ -71,7 +78,9 @@ def set_label(value: str = ""):
 
 @app.post("/calibrate")
 def calibrate():
-    analyzer.recalibrate()
+    # analyzer'a bu (HTTP) iş parçacığından dokunma: kamera döngüsü snapshot()/_score() ortasındayken
+    # baseline None olursa TypeError ile döngü ölürdü. Bayrak bırak, döngü uygulasın.
+    recal["req"] = True
     return {"ok": True}
 
 
@@ -159,6 +168,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--camera", type=int, default=0)
     ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--host", default="127.0.0.1",
+                    help="dinlenen adres (varsayılan: yalnızca bu bilgisayar; ağdan erişim için 0.0.0.0)")
     ap.add_argument("--no-preview", action="store_true")
     ap.add_argument("--exposure", type=float, default=None,
                     help="manuel pozlama (örn -5). Kısa pozlama = 30 FPS ama karanlık görüntü")
@@ -186,7 +197,7 @@ def main():
         lut = np.array([255 * (i / 255) ** (1 / args.gamma) for i in range(256)],
                        np.uint8)
 
-    server = uvicorn.Server(uvicorn.Config(app, host="0.0.0.0", port=args.port,
+    server = uvicorn.Server(uvicorn.Config(app, host=args.host, port=args.port,
                                            log_level="warning"))
     threading.Thread(target=server.run, daemon=True).start()
 
@@ -221,11 +232,15 @@ def main():
     while True:
         ok, frame = cap.read()
         if not ok:
+            time.sleep(0.01)             # kamera kesilirse işlemciyi kilitleme
             continue
         if not args.no_mirror:
             frame = cv2.flip(frame, 1)
         if lut is not None:
             frame = cv2.LUT(frame, lut)
+        if recal["req"]:
+            recal["req"] = False
+            analyzer.recalibrate()
         pts = analyzer.process(frame)
         if guided:                               # etiketi zamanlama belirler
             banner = guided.state(time.time())

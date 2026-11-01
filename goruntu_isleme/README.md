@@ -44,6 +44,7 @@ OpenCV sürümü sabittir: pip'teki OpenCV 5.0 kamerayı indeksle açamıyor. Lo
 | Seçenek | Ne yapar |
 |---|---|
 | `--camera N`, `--port N` | kamera indeksi (0), sunucu portu (8000) |
+| `--host H` | dinlenen adres; varsayılan `127.0.0.1` (yalnızca bu bilgisayar, `veri_hatti` gibi). Ağdan erişim için `0.0.0.0` |
 | `--no-preview` | önizleme penceresi olmadan çalış |
 | `--exposure N`, `--gamma G` | yukarıya bak |
 | `--debug-hands` | el filtresinin elediği adayları gri kutuyla göster |

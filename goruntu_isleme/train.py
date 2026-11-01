@@ -124,13 +124,15 @@ def perm_p(X, seg, segs, seg_y, observed, rng):
     """Bölüm etiketlerini (sınıf sayısı korunarak) yeniden dağıt; ≥ gözlenen kadar iyi olanların oranı."""
     n_lie = sum(seg_y[s] for s in segs)
     combos = list(itertools.combinations(range(len(segs)), n_lie))
-    if len(combos) > MAX_PERMS:
+    sampled = len(combos) > MAX_PERMS
+    if sampled:
         combos = [tuple(rng.choice(len(segs), n_lie, replace=False)) for _ in range(MAX_PERMS)]
     better = 0
     for c in combos:
         sy = {s: (1 if i in c else 0) for i, s in enumerate(segs)}
         better += nested_cv(X, seg, sy, segs) >= observed - 1e-9
-    return better / len(combos)
+    # Örneklemede gerçek etiket dağılımı örneğe girmeyebilir; (b+1)/(n+1) ile p asla 0 çıkmaz.
+    return (better + 1) / (len(combos) + 1) if sampled else better / len(combos)
 
 
 def main():

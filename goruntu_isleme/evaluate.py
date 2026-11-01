@@ -137,6 +137,8 @@ def main():
         print(f"UYARI: test oturumunda sadece {nseg} bölüm var; sonuç çok belirsiz olur.")
 
     tX, ty, tseg = stack(train_sessions)
+    if len(set(ty)) < 2:         # tek sınıfla eğitilen model anlamsız; sınıf ağırlığında sıfıra bölme olur
+        sys.exit("Eğitim oturumlarında hem doğru hem yalan bölüm gerekli.")
     report("1) HAM özellikler, eğitim kişisinden test kişisine", tX, ty, tseg, test)
 
     ns_train = [normalize(s) for s in train_sessions]
