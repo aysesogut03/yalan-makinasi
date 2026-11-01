@@ -1,0 +1,12 @@
+# Kişisel veri: yüz görüntüleri ve deneklerin davranış kayıtları (ana README, 4. bölüm, 6. kural)
+screenshots/
+data/
+
+# Eğitilmiş kişiye özel model ve yarım kayıtlar
+model.json
+model_*.json
+*.bak
+
+.venv/
+__pycache__/
+*.log
