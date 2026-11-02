@@ -72,7 +72,10 @@ class Yonetici:
 
     def yaz(self, ad: str, metin: str) -> None:
         with self._yazma_kilidi:
-            print(f"[{ad}] {metin}", flush=True)
+            try:
+                print(f"[{ad}] {metin}", flush=True)
+            except (OSError, ValueError):
+                pass
 
     def baslat(self, parca: Parca) -> None:
         ortam = dict(os.environ, PYTHONUNBUFFERED="1", PYTHONIOENCODING="utf-8")
@@ -107,6 +110,7 @@ class Yonetici:
         return next((p for p in self._parcalar if p.surec.poll() is not None), None)
 
     def hepsini_kapat(self) -> None:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         for parca in reversed(self._parcalar):
             if parca.surec.poll() is None:
                 self.yaz(parca.ad, "kapatılıyor…")
@@ -193,9 +197,16 @@ def wokwiyi_bekle(yonetici: Yonetici) -> None:
     yonetici.yaz("wokwi", "simülasyon açık")
 
 
+def kapatma_isteginde_durdur(*_) -> None:
+    raise KeyboardInterrupt
+
+
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
+    for isaret in ("SIGTERM", "SIGHUP"):
+        if hasattr(signal, isaret):
+            signal.signal(getattr(signal, isaret), kapatma_isteginde_durdur)
     komut_satiri = argparse.ArgumentParser(prog="python3 baslat.py", description="Bütün sistemi tek komutla açar.")
     kaynak = komut_satiri.add_mutually_exclusive_group()
     kaynak.add_argument("--wokwi", action="store_true", help="Wokwi simülasyonuna bağlan (4000 kapısı)")
@@ -236,7 +247,6 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             time.sleep(0.5)
     except KeyboardInterrupt:
-        print(flush=True)
         yonetici.yaz("başlatıcı", "kapatılıyor…")
         return 0
     except RuntimeError as hata:
