@@ -4,4 +4,5 @@ __pycache__/
 kayitlar/
 node_modules/
 esp32/*/build/
+backend/oturumlar.json
 

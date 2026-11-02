@@ -25,10 +25,14 @@ export function useOlcumStream(active: boolean = true) {
     const baglan = () => {
       setStatus('baglaniyor');
       ws = new WebSocket(WS_URL);
-      ws.onopen = () => setStatus('bagli');
       ws.onmessage = (e) => {
         try {
           const m = JSON.parse(e.data);
+          if (m.durum === 'veri_yok') {
+            setStatus('baglaniyor');
+            return;
+          }
+          setStatus('bagli');
           if (typeof m.heartRate !== 'number') return;
           const nokta: OlcumData = {
             timestamp: m.timestamp,

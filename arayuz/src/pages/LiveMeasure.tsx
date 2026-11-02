@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Play, Square, Activity, Droplets, Wind, HeartPulse } from 'lucide-react';
 import { SensorCard } from '../components/SensorCard';
+import { LiveChart } from '../components/LiveChart';
 import { BaglantiDurumu, useOlcumStream } from '../services/websocket';
 import { sessionService } from '../services/api';
 
@@ -137,7 +138,7 @@ export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
           {status === 'bagli'
             ? 'Veri hattına bağlandı. Biyosinyal verileri aktarılıyor…'
-            : 'Veri hattına bağlanılıyor…'}
+            : 'Veri hattından canlı kayıt bekleniyor… Okuyucu çalışıyor mu? (veri_hatti: .venv/bin/python -m okuyucu)'}
         </div>
       )}
 
@@ -177,6 +178,9 @@ export const LiveMeasure: React.FC<LiveMeasureProps> = ({ onDurum }) => {
           status={kartDurumu}
         />
       </div>
+
+      {/* Ana grafik */}
+      <LiveChart dataStream={dataStream} />
 
       {/* Özet İstatistik Tablosu */}
       <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-card">

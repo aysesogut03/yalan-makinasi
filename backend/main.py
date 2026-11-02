@@ -148,21 +148,21 @@ def bitir_oturum(kayit_id: str, bitis: OturumBitis):
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    klasor = en_guncel_oturum()
-    if klasor is None:
-        await websocket.send_json({"durum": "veri_yok"})
-        await websocket.close()
-        return
-
-    okuyucu = CanliOkuyucu(klasor, oynat=not canli_mi(klasor))
+    # Yalnızca şu an yazılan (canlı) kayıt gönderilir; eski kayıt canlıymış gibi oynatılmaz.
+    # Okuyucu yeniden başlatılıp yeni bir kayıt klasörü açarsa ona geçilir.
+    klasor, okuyucu = None, None
     try:
         while True:
-            okuyucu.ilerle()
-            nokta = okuyucu.nokta()
-            if nokta:
-                await websocket.send_json(nokta)
-            if okuyucu.bitti:
-                okuyucu = CanliOkuyucu(klasor, oynat=True)
+            guncel = en_guncel_oturum()
+            if guncel is None or not canli_mi(guncel):
+                klasor, okuyucu = None, None
+                await websocket.send_json({"durum": "veri_yok"})
+            else:
+                if guncel != klasor:
+                    klasor, okuyucu = guncel, CanliOkuyucu(guncel)
+                okuyucu.ilerle()
+                nokta = okuyucu.nokta()
+                await websocket.send_json(nokta or {"durum": "hesaplaniyor"})
             await asyncio.sleep(1)
     except (WebSocketDisconnect, RuntimeError):
         print("İstemci canlı veri yayınından ayrıldı.")
