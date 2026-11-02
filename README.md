@@ -159,3 +159,17 @@ yalanmakinesi/
 |---|---|
 | 1. ESP32 ve sensörler, 2. Veri hattı | [veri_hatti/README.md](veri_hatti/README.md) |
 | Diğerleri | Her grup kendi klasöründe yazacak |
+
+## 12. Tek komutla çalıştırma
+
+Proje kökündeki `baslat.py` bütün sistemi tek komutla açar: backend, arayüz, ESP32 kaynağı ve veri hattı sırayla başlar, hazır olunca tarayıcı açılır. Ctrl+C hepsini birlikte kapatır. Yalnızca Python 3.10+ ve Node.js gerekir. Windows'ta `python3` yerine `python` yazılır.
+
+| Komut | Ne yapar |
+|---|---|
+| `python3 baslat.py --kur` | Yeni bir bilgisayarda bir kez: Python ortamlarını ve npm paketlerini kurar |
+| `python3 baslat.py` | Sahte ESP32 ile çalıştırır (donanım gerekmez) |
+| `python3 baslat.py --wokwi` | Wokwi simülasyonuyla çalıştırır; önce VS Code'da `Wokwi: Start Simulator` |
+| `python3 baslat.py --adres COM3` | Gerçek ESP32 ile çalıştırır (macOS'ta örneğin `/dev/cu.usbserial-0001`) |
+| `python3 baslat.py --goruntu` | Görüntü işlemeyi de açar (yalnızca Windows, 8001 kapısı; kurulum için `--kur --goruntu`) |
+
+Arayüz: http://localhost:5173, giriş `admin / 123` (geçici).
