@@ -1,10 +1,11 @@
 import React from 'react';
-import { Bell, Radio } from 'lucide-react';
+import { Bell, Radio, LogOut } from 'lucide-react';
 import type { BaglantiDurumu } from '../services/websocket';
 
 interface HeaderBarProps {
   activeTab: string;
   durum: BaglantiDurumu;
+  onLogout?: () => void;
 }
 
 const DURUMLAR: Record<BaglantiDurumu, { rozet: string; baglanti: string; renk: string; nokta: string; ping: string }> = {
@@ -41,7 +42,7 @@ const PAGE_META: Record<string, { title: string; hint: string }> = {
   'ayarlar': { title: 'Ayarlar', hint: 'Sistem tercihleri' },
 };
 
-export const HeaderBar: React.FC<HeaderBarProps> = ({ activeTab, durum }) => {
+export const HeaderBar: React.FC<HeaderBarProps> = ({ activeTab, durum, onLogout }) => {
   const meta = PAGE_META[activeTab] ?? { title: activeTab, hint: '' };
   const d = DURUMLAR[durum];
 
@@ -59,7 +60,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ activeTab, durum }) => {
         </h2>
       </div>
 
-      {/* Sağ: durum rozetleri */}
+      {/* Sağ: durum rozetleri ve kullanıcı / çıkış işlemleri */}
       <div className="flex shrink-0 items-center gap-3">
         <div className={`hidden items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-bold sm:flex ${d.renk}`}>
           <span className="relative flex h-2 w-2">
@@ -86,11 +87,27 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ activeTab, durum }) => {
 
         <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white py-1 pl-1 pr-3">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-orange to-orange-400 text-[10px] font-black text-white">
-            K
+            A
           </span>
-          <span className="text-[11px] font-bold text-brand-navy">K-104</span>
+          <span className="text-[11px] font-bold text-brand-navy">Admin</span>
         </div>
+
+        {/* Çıkış Yap Butonu */}
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            aria-label="Çıkış Yap"
+            className="flex h-9 items-center gap-1.5 rounded-full border border-red-200 bg-red-50/70 px-3 text-[11px] font-bold text-red-600 transition hover:bg-red-100/80 cursor-pointer"
+            title="Oturumu Kapat"
+          >
+            <LogOut size={14} />
+            <span className="hidden sm:inline">Çıkış</span>
+          </button>
+        )}
       </div>
     </header>
   );
 };
+
+export default HeaderBar;

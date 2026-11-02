@@ -1,4 +1,5 @@
-import React, { useId } from 'react';
+import React, { useId, useEffect, useState } from 'react';
+import { participantService, api } from '../services/api';
 
 interface DashboardProps {
   onGoToMeasure: () => void;
@@ -82,10 +83,48 @@ const GSR = [1.42, 1.44, 1.43, 1.47, 1.49, 1.48, 1.5, 1.49, 1.51, 1.49, 1.5, 1.4
 const RESP = [14, 15, 14, 13, 14, 15, 14, 14, 13, 14, 14, 14];
 
 export const Dashboard: React.FC<DashboardProps> = ({ onGoToMeasure, onGoToNewSession }) => {
+  const [katilimciSayisi, setKatilimciSayisi] = useState<number>(0);
+  const [oturumSayisi, setOturumSayisi] = useState<number>(0);
+  const [backendAktif, setBackendAktif] = useState<boolean>(true);
+
+  // Backend'den dinamik istatistikleri çekme
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const katilimcilar = await participantService.getParticipants();
+        setKatilimciSayisi(katilimcilar.length);
+
+        // Backend bağlantısını test etme
+        setBackendAktif(true);
+      } catch (err) {
+        console.error('Dashboard veri yükleme hatası:', err);
+        setBackendAktif(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
   const metrics = [
-    { label: 'BAĞLANTI DURUMU', value: 'Demo modu', icon: <IconLink />, tone: 'bg-amber-50 text-amber-600', dot: true },
-    { label: 'AKTİF KATILIMCI', value: 'K-104', icon: <IconUser />, tone: 'bg-blue-50 text-blue-600' },
-    { label: 'TAMAMLANAN OTURUM', value: '0', icon: <IconCheck />, tone: 'bg-emerald-50 text-emerald-600' },
+    { 
+      label: 'BAĞLANTI DURUMU', 
+      value: backendAktif ? 'API Aktif' : 'Çevrimdışı', 
+      icon: <IconLink />, 
+      tone: backendAktif ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600', 
+      dot: true 
+    },
+    { 
+      label: 'KAYITLI KATILIMCI', 
+      value: String(katilimciSayisi), 
+      icon: <IconUser />, 
+      tone: 'bg-blue-50 text-blue-600' 
+    },
+    { 
+      label: 'TAMAMLANAN OTURUM', 
+      value: String(oturumSayisi), 
+      icon: <IconCheck />, 
+      tone: 'bg-emerald-50 text-emerald-600' 
+    },
   ];
 
   const sensors = [
@@ -164,7 +203,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onGoToMeasure, onGoToNewSe
           </div>
           <button
             onClick={onGoToNewSession}
-            className="flex shrink-0 items-center gap-2 rounded-xl bg-brand-orange px-5 py-3 text-xs font-bold text-white shadow-glow transition hover:-translate-y-0.5 hover:bg-orange-500 active:translate-y-0"
+            className="flex shrink-0 items-center gap-2 rounded-xl bg-brand-orange px-5 py-3 text-xs font-bold text-white shadow-glow transition hover:-translate-y-0.5 hover:bg-orange-500 active:translate-y-0 cursor-pointer"
           >
             Yeni oturum başlat ↗
           </button>
@@ -186,7 +225,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onGoToMeasure, onGoToNewSe
                 {m.label}
               </span>
               <p className="flex items-center gap-2 text-xl font-extrabold text-brand-navy">
-                {m.dot && <span className="h-2 w-2 rounded-full bg-amber-400" />}
+                {m.dot && <span className={`h-2 w-2 rounded-full ${backendAktif ? 'bg-emerald-500' : 'bg-amber-400'}`} />}
                 {m.value}
               </p>
             </div>
@@ -224,7 +263,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onGoToMeasure, onGoToNewSe
 
         <button
           onClick={onGoToMeasure}
-          className="rounded-xl bg-brand-navy px-4 py-2.5 text-xs font-bold text-white transition hover:bg-brand-cardNav"
+          className="rounded-xl bg-brand-navy px-4 py-2.5 text-xs font-bold text-white transition hover:bg-brand-cardNav cursor-pointer"
         >
           Ölçüm ekranını aç
         </button>
@@ -236,3 +275,5 @@ export const Dashboard: React.FC<DashboardProps> = ({ onGoToMeasure, onGoToNewSe
     </div>
   );
 };
+
+export default Dashboard;
